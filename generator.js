@@ -42,28 +42,83 @@ const BAD_TITLE = new RegExp([
   '^UTC', 'Time zone', 'Часовой пояс', 'Всемирное координированное', 'Географические координаты',
 ].join('|'), 'i');
 
-const UA = 'WikiWars/1.1 (two-player Wikipedia race game; hobby project)';
+// Wikimedia asks every client to name itself and give a contact (User-Agent policy).
+const CONTACT = process.env.WIKI_CONTACT || 'https://github.com/YelnurK/wikiwars';
+const UA = `WikiWars/1.2 (${CONTACT}; two-player Wikipedia race game)`;
 
 function wikiBase(lang) {
   return process.env.WIKI_BASE ? `${process.env.WIKI_BASE}/${lang}` : `https://${lang}.wikipedia.org`;
 }
 
+// ---------------- polite request queue ----------------
+// Wikimedia's robot policy for clients without an account: ONE request at a time,
+// fewer than 5 per second, and a 5-second pause after a request that took over 1 s.
+// Every server-side call goes through this queue. Requests made while a game is
+// waiting go first; background list-building (warm-up) waits its turn.
+
+const { AsyncLocalStorage } = require('async_hooks');
+const background = new AsyncLocalStorage();
+const MIN_GAP = Number(process.env.WIKI_MIN_GAP_MS || 300);
+const SLOW_MS = 1000, SLOW_PAUSE = 5000;
+const queue = { high: [], low: [] };
+let busy = false, readyAt = 0;
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const inBackground = fn => background.run(true, fn);
+
+function schedule(fn) {
+  return new Promise((resolve, reject) => {
+    (background.getStore() ? queue.low : queue.high).push({ fn, resolve, reject });
+    pump();
+  });
+}
+async function pump() {
+  if (busy) return;
+  const job = queue.high.shift() || queue.low.shift();
+  if (!job) return;
+  busy = true;
+  const wait = readyAt - Date.now();
+  if (wait > 0) await sleep(wait);
+  const t0 = Date.now();
+  try { job.resolve(await job.fn()); } catch (e) { job.reject(e); }
+  const took = Date.now() - t0;
+  readyAt = Math.max(readyAt, Date.now() + (took > SLOW_MS ? SLOW_PAUSE : MIN_GAP));
+  busy = false;
+  pump();
+}
+function pauseAll(ms) { readyAt = Math.max(readyAt, Date.now() + ms); }
+
+class WikiBusy extends Error {}
+
 async function api(lang, params) {
   const url = new URL(wikiBase(lang) + '/w/api.php');
   const all = { format: 'json', formatversion: '2', maxlag: 5, ...params };
   for (const [k, v] of Object.entries(all)) url.searchParams.set(k, String(v));
+  const backoff = [2000, 5000, 10000, 20000];
   let lastErr;
-  for (let attempt = 0; attempt < 3; attempt++) {
+  for (let attempt = 0; attempt <= backoff.length; attempt++) {
     try {
-      const res = await fetch(url, { headers: { 'User-Agent': UA, 'Api-User-Agent': UA }, signal: AbortSignal.timeout(15000) });
-      if (!res.ok) throw new Error(`Wikipedia answered ${res.status}`);
-      const data = await res.json();
-      if (data.error) throw new Error(data.error.info || data.error.code);
-      return data;
+      return await schedule(async () => {
+        const res = await fetch(url, { headers: { 'User-Agent': UA, 'Api-User-Agent': UA }, signal: AbortSignal.timeout(20000) });
+        if (res.status === 429 || res.status === 503) {
+          const ra = Number(res.headers.get('retry-after'));
+          const ms = Math.min(60000, Math.max(backoff[Math.min(attempt, backoff.length - 1)], ra > 0 ? ra * 1000 : 0));
+          pauseAll(ms); // everyone waits, not only this request
+          throw new WikiBusy(`Wikipedia answered ${res.status}`);
+        }
+        if (!res.ok) throw new Error(`Wikipedia answered ${res.status}`);
+        const data = await res.json();
+        if (data.error && data.error.code === 'maxlag') { pauseAll(5000); throw new WikiBusy('Wikipedia is lagging'); }
+        if (data.error) { const e = new Error(data.error.info || data.error.code); e.final = true; throw e; }
+        return data;
+      });
     } catch (e) {
       lastErr = e;
-      await new Promise(r => setTimeout(r, 500 * (attempt + 1)));
+      if (e.final) throw e;
+      if (!(e instanceof WikiBusy)) await sleep(1000 * (attempt + 1)); // network hiccup
     }
+  }
+  if (lastErr instanceof WikiBusy) {
+    throw new WikiBusy('Wikipedia is limiting requests right now. Wait a minute and press Start again.');
   }
   throw lastErr;
 }
@@ -187,19 +242,34 @@ function ttlOf(entry, catId) {
   const cat = CATEGORIES.find(c => c.id === catId);
   return entry.source === 'seeds' && cat && cat.vital ? 3600 * 1000 : POOL_TTL;
 }
-function poolFor(lang, catId) {
+const refreshInBackground = (lang, catId) => inBackground(() => buildPool(lang, catId)).catch(() => {});
+
+// fast = a game is waiting: never wait for a full build (hundreds of requests);
+// use the category's built-in list now and let the full one load in the background.
+async function poolFor(lang, catId, { fast = false } = {}) {
   const key = `${lang}:${catId}`;
   const mem = poolMem.get(key);
-  if (mem && Date.now() - mem.at < ttlOf(mem, catId)) return Promise.resolve(mem.titles);
-  if (mem) { buildPool(lang, catId).catch(() => {}); return Promise.resolve(mem.titles); }
+  if (mem && Date.now() - mem.at < ttlOf(mem, catId)) return mem.titles;
+  if (mem) { refreshInBackground(lang, catId); return mem.titles; }
   const disk = readDisk(lang, catId);
   if (disk) {
     poolMem.set(key, disk);
-    if (Date.now() - disk.at < ttlOf(disk, catId)) return Promise.resolve(disk.titles);
-    buildPool(lang, catId).catch(() => {}); // stale: refresh in the background, use old list now
-    return Promise.resolve(disk.titles);
+    if (Date.now() - disk.at >= ttlOf(disk, catId)) refreshInBackground(lang, catId); // stale: use old list now
+    return disk.titles;
   }
-  return buildPool(lang, catId);
+  if (!fast) return buildPool(lang, catId);
+  refreshInBackground(lang, catId);
+  return seedPool(lang, catId);
+}
+
+const seedMem = new Map();
+async function seedPool(lang, catId) {
+  const key = `${lang}:${catId}`;
+  if (seedMem.has(key)) return seedMem.get(key);
+  const cat = CATEGORIES.find(c => c.id === catId);
+  const titles = cat ? await translate(cat.seeds, lang) : [];
+  if (titles.length) seedMem.set(key, titles);
+  return titles;
 }
 function buildPool(lang, catId) {
   const key = `${lang}:${catId}`;
@@ -233,13 +303,18 @@ function buildPool(lang, catId) {
 }
 
 // Prepare pools in the background so "Start race" is fast.
+// Runs at low priority, one category after another; a game in progress is never slowed.
+const warming = new Set();
 function warmUp(settings) {
   const cats = (settings.categories && settings.categories.length ? settings.categories : CATEGORIES.map(c => c.id));
-  (async () => {
+  const key = `${settings.lang}|${cats.join(',')}`;
+  if (warming.has(key)) return;
+  warming.add(key);
+  inBackground(async () => {
     for (const c of cats) {
       try { await poolFor(settings.lang, c); } catch (e) { console.warn(`[warm ${settings.lang}:${c}]`, e.message); }
     }
-  })();
+  }).finally(() => warming.delete(key));
 }
 
 // ---------------- Wikipedia helpers ----------------
@@ -306,7 +381,8 @@ async function pickFromPools(lang, cats, avoid) {
   for (let tries = 0; tries < 10; tries++) {
     const catId = cats[tries % cats.length];
     let pool;
-    try { pool = await poolFor(lang, catId); } catch (e) { console.warn(`[pool ${lang}:${catId}]`, e.message); continue; }
+    try { pool = await poolFor(lang, catId, { fast: true }); } catch (e) {
+      if (e instanceof WikiBusy) throw e; console.warn(`[pool ${lang}:${catId}]`, e.message); continue; }
     const options = pool.filter(t => !avoid.has(t));
     if (!options.length) continue;
     const info = await pageInfo(lang, pickOne(options));
@@ -325,33 +401,45 @@ async function generatePair(settings, usedTargets = new Set()) {
   const chosen = settings.categories && settings.categories.length ? settings.categories : allCats;
   const minLen = MIN_LEN[lang] || 6000;
 
+  let lastErr = null;
   for (let attempt = 0; attempt < 8; attempt++) {
-    const cats = shuffle(chosen);
-    const target = await pickFromPools(lang, cats, usedTargets);
-    if (!target) continue;
-
-    if (diff.mode === 'walk') {
-      const chain = await backWalk(lang, target.title, diff, usedTargets);
-      if (!chain) continue;
-      if (await linksDirectly(lang, chain[0], target.title)) continue;
-      return { start: chain[0], target: target.title, par: diff.steps, route: chain, category: target.catId, time: diff.time };
+    try {
+      const pair = await tryPair(lang, diff, chosen, allCats, minLen, usedTargets);
+      if (pair) return pair;
+    } catch (e) {
+      if (e instanceof WikiBusy) throw e; // already waited and retried; don't hammer Wikipedia
+      lastErr = e;
+      console.warn('[generate] attempt failed:', e.message);
     }
-
-    let start = null;
-    if (diff.mode === 'cross') {
-      // Prefer a different topic for the start: the more distant, the longer the race.
-      const others = shuffle(chosen.filter(c => c !== target.catId));
-      const pool = others.length ? others : shuffle(allCats.filter(c => c !== target.catId));
-      const s = await pickFromPools(lang, pool, new Set([...usedTargets, target.title]));
-      start = s && s.title;
-    } else {
-      start = await randomGoodArticle(lang, minLen, new Set([...usedTargets, target.title]));
-    }
-    if (!start || start === target.title) continue;
-    if (await linksDirectly(lang, start, target.title)) continue;
-    return { start, target: target.title, par: null, route: null, category: target.catId, time: diff.time };
   }
-  throw new Error('Wikipedia did not give us a good pair of articles. Try again or pick more categories.');
+  throw new Error(lastErr ? lastErr.message : 'Wikipedia did not give us a good pair of articles. Try again or pick more categories.');
+}
+
+async function tryPair(lang, diff, chosen, allCats, minLen, usedTargets) {
+  const cats = shuffle(chosen);
+  const target = await pickFromPools(lang, cats, usedTargets);
+  if (!target) return null;
+
+  if (diff.mode === 'walk') {
+    const chain = await backWalk(lang, target.title, diff, usedTargets);
+    if (!chain) return null;
+    if (await linksDirectly(lang, chain[0], target.title)) return null;
+    return { start: chain[0], target: target.title, par: diff.steps, route: chain, category: target.catId, time: diff.time };
+  }
+
+  let start = null;
+  if (diff.mode === 'cross') {
+    // Prefer a different topic for the start: the more distant, the longer the race.
+    const others = shuffle(chosen.filter(c => c !== target.catId));
+    const pool = others.length ? others : shuffle(allCats.filter(c => c !== target.catId));
+    const s = await pickFromPools(lang, pool, new Set([...usedTargets, target.title]));
+    start = s && s.title;
+  } else {
+    start = await randomGoodArticle(lang, minLen, new Set([...usedTargets, target.title]));
+  }
+  if (!start || start === target.title) return null;
+  if (await linksDirectly(lang, start, target.title)) return null;
+  return { start, target: target.title, par: null, route: null, category: target.catId, time: diff.time };
 }
 
 module.exports = { generatePair, warmUp, poolFor, LANGS, DIFFICULTIES, CATEGORIES, wikiBase };
