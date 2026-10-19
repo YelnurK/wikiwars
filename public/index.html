@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>WikiWars</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='32' height='64' fill='%233366cc'/%3E%3Crect x='32' width='32' height='64' fill='%23d73333'/%3E%3Ctext x='32' y='45' font-family='Arial Black,Arial' font-size='34' font-weight='900' fill='%23fff' text-anchor='middle'%3EW%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/fonts.css">
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/wiki.css">
+</head>
+<body>
+  <div class="duel-stripe" aria-hidden="true"></div>
+
+  <!-- ============ HOME ============ -->
+  <section id="screen-home" class="screen home">
+    <header class="masthead">
+      <span class="wordmark">WikiWars</span>
+      <button class="textlink" data-open="modal-rules">How to play</button>
+    </header>
+    <main class="home-main">
+      <div class="home-copy">
+        <h1 class="hero">WikiWars</h1>
+        <p class="hero-lede">
+          You and a rival open the same article, say <a class="fake-link">Tea</a>.
+          The first to reach <a class="fake-link">Snow leopard</a> wins, clicking only the blue links inside each page.
+          <a class="fake-link red">Red links</a> lead nowhere. Along the way you can blur, black out or rewind your rival.
+        </p>
+        <div class="home-actions">
+          <button class="btn btn-blue btn-lg" data-open="modal-create">Create a room</button>
+          <button class="btn btn-outline btn-lg" data-open="modal-join">Join with a code</button>
+        </div>
+      </div>
+      <aside class="infobox-card" aria-label="Game facts">
+        <div class="ib-title">WikiWars</div>
+        <div class="ib-visual" aria-hidden="true">
+          <div class="ib-side blue"><span>You</span></div>
+          <div class="ib-vs">vs</div>
+          <div class="ib-side red"><span>Rival</span></div>
+        </div>
+        <table>
+          <tr><th>Players</th><td>2, one room code</td></tr>
+          <tr><th>Wikipedia</th><td>Қазақша, Русский, English</td></tr>
+          <tr><th>Difficulty</th><td>Easy, Medium, Hard, Impossible</td></tr>
+          <tr><th>Abilities</th><td>Blur, Blackout, Rewind</td></tr>
+          <tr><th>Rule</th><td>Blue links only</td></tr>
+        </table>
+      </aside>
+    </main>
+  </section>
+
+  <!-- ============ LOBBY ============ -->
+  <section id="screen-lobby" class="screen lobby" hidden>
+    <header class="masthead">
+      <span class="wordmark">WikiWars</span>
+      <div class="masthead-right">
+        <button class="textlink" data-open="modal-rules">How to play</button>
+        <button class="btn btn-quiet btn-sm" id="btn-leave">Leave room</button>
+      </div>
+    </header>
+    <main class="lobby-main">
+      <section class="code-block">
+        <h2 class="block-title">Room code</h2>
+        <div class="code-tiles" id="lobby-code" aria-live="polite"></div>
+        <p class="hint">Your rival opens this site, chooses <b>Join with a code</b> and types these six letters.</p>
+        <div class="row gap">
+          <button class="btn btn-outline btn-sm" id="btn-copy-code">Copy code</button>
+          <button class="btn btn-outline btn-sm" id="btn-copy-link">Copy invite link</button>
+        </div>
+      </section>
+
+      <section class="versus" id="lobby-players" aria-label="Players"></section>
+
+      <section class="settings-block">
+        <h2 class="block-title">Game settings <span class="muted" id="settings-note"></span></h2>
+        <div id="lobby-settings"></div>
+        <p class="error-box" id="lobby-error" hidden></p>
+        <div class="start-row">
+          <button class="btn btn-blue btn-xl" id="btn-start">Start race</button>
+          <p class="hint" id="start-hint"></p>
+        </div>
+      </section>
+    </main>
+  </section>
+
+  <!-- ============ GAME ============ -->
+  <section id="screen-game" class="screen game" hidden>
+    <header class="gamebar">
+      <span class="wordmark small">WW</span>
+      <div class="route">
+        <span class="route-label">From</span>
+        <span id="g-start" class="route-title"></span>
+        <span class="route-label">to</span>
+        <button class="route-title target" id="g-target-btn" title="About the target article"><span id="g-target"></span></button>
+        <span class="par" id="g-par"></span>
+      </div>
+      <div class="abilities" id="abilities"></div>
+      <div class="timer" id="g-timer">0:00</div>
+    </header>
+
+    <div class="panes">
+      <section class="pane mine" id="pane-me">
+        <div class="pane-head">
+          <span class="who you">You</span>
+          <span class="pname" id="me-name"></span>
+          <span class="clicks"><b id="me-clicks">0</b> clicks</span>
+          <div class="crumbs" id="me-crumbs"></div>
+        </div>
+        <div class="pane-body-wrap">
+          <div class="loadbar" id="me-load"></div>
+          <div class="pane-body" id="me-body" tabindex="0"></div>
+          <div class="fx-blackout" id="me-black"></div>
+          <div class="fx-banner" id="me-banner"></div>
+        </div>
+      </section>
+      <section class="pane theirs" id="pane-opp">
+        <div class="pane-head">
+          <span class="who rival">Rival</span>
+          <span class="pname" id="opp-name"></span>
+          <span class="live" id="opp-live"><i></i>live</span>
+          <span class="clicks"><b id="opp-clicks">0</b> clicks</span>
+          <div class="crumbs" id="opp-crumbs"></div>
+        </div>
+        <div class="pane-body-wrap">
+          <div class="loadbar" id="opp-load"></div>
+          <div class="pane-body readonly" id="opp-body"></div>
+          <div class="fx-blackout" id="opp-black"></div>
+          <div class="fx-banner" id="opp-banner"></div>
+        </div>
+      </section>
+    </div>
+
+    <!-- countdown / generating overlay -->
+    <div class="overlay" id="g-overlay" hidden>
+      <div class="countdown">
+        <p class="cd-note" id="ov-eyebrow">Get ready</p>
+        <div class="count" id="ov-count">3</div>
+        <div class="cd-route">
+          <div class="cd-end"><small>Start</small><b id="ov-start"></b></div>
+          <div class="cd-arrow" aria-hidden="true"></div>
+          <div class="cd-end goal"><small>Target</small><b id="ov-target"></b></div>
+        </div>
+        <div class="summary" id="ov-summary"></div>
+      </div>
+    </div>
+
+    <!-- results -->
+    <div class="overlay" id="g-results" hidden>
+      <div class="results">
+        <p class="cd-note" id="res-eyebrow">Round over</p>
+        <h2 class="res-title" id="res-title">You won</h2>
+        <p class="res-sub" id="res-sub"></p>
+        <div class="res-players" id="res-players"></div>
+        <div class="res-route" id="res-route"></div>
+        <div class="row gap wrap" id="res-actions"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ DIALOGS ============ -->
+  <div class="modal" id="modal-create" hidden>
+    <div class="dialog" role="dialog" aria-labelledby="create-title">
+      <header class="dialog-head"><h2 id="create-title">Create a room</h2><button class="close" data-close aria-label="Close">×</button></header>
+      <div class="dialog-body">
+        <label class="field-label" for="create-name">Your name</label>
+        <input class="input" id="create-name" maxlength="20" placeholder="e.g. Yelnur" autocomplete="nickname">
+        <div id="create-settings"></div>
+        <p class="error-box" id="create-error" hidden></p>
+      </div>
+      <footer class="dialog-foot"><button class="btn btn-blue btn-lg wide" id="btn-create">Create room</button></footer>
+    </div>
+  </div>
+
+  <div class="modal" id="modal-join" hidden>
+    <div class="dialog narrow" role="dialog" aria-labelledby="join-title">
+      <header class="dialog-head"><h2 id="join-title">Join a room</h2><button class="close" data-close aria-label="Close">×</button></header>
+      <div class="dialog-body">
+        <label class="field-label" for="join-name">Your name</label>
+        <input class="input" id="join-name" maxlength="20" placeholder="e.g. Aruzhan" autocomplete="nickname">
+        <label class="field-label" for="join-code">Room code</label>
+        <div class="code-entry">
+          <div class="code-cells" id="join-cells" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span></div>
+          <input id="join-code" maxlength="6" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-describedby="join-hint">
+        </div>
+        <p class="hint" id="join-hint">Six letters, from the host's screen.</p>
+        <p class="error-box" id="join-error" hidden></p>
+      </div>
+      <footer class="dialog-foot"><button class="btn btn-blue btn-lg wide" id="btn-join" disabled>Join room</button></footer>
+    </div>
+  </div>
+
+  <div class="modal" id="modal-rules" hidden>
+    <div class="dialog article" role="dialog" aria-labelledby="rules-title">
+      <header class="dialog-head"><h2 id="rules-title">How to play</h2><button class="close" data-close aria-label="Close">×</button></header>
+      <div class="dialog-body rules">
+        <p class="rules-from">From WikiWars, the race you are about to lose.</p>
+        <table class="rules-ib">
+          <caption>Abilities</caption>
+          <tr><th><span class="ab-dot"></span>Blur</th><td>Rival's page goes out of focus for 2.5 s</td></tr>
+          <tr><th><span class="ab-dot"></span>Blackout</th><td>Rival's screen flickers black every 0.5 s for 3 s</td></tr>
+          <tr><th><span class="ab-dot"></span>Rewind</th><td>Rival is sent back two links</td></tr>
+          <tr><th>Cooldown</th><td>8 s between any two abilities. Keys 1, 2, 3.</td></tr>
+        </table>
+        <p><b>WikiWars</b> is a race for two through Wikipedia. Both players start on article A and try to reach article B by clicking only the blue links inside the articles.</p>
+        <nav class="toc" aria-label="Contents">
+          <div class="toc-title">Contents</div>
+          <ol><li><a href="#r-room">Making a room</a></li><li><a href="#r-race">The race</a></li><li><a href="#r-abilities">Abilities</a></li><li><a href="#r-win">Winning</a></li><li><a href="#r-levels">Difficulty</a></li></ol>
+        </nav>
+        <h3 id="r-room">Making a room</h3>
+        <p>The host types a name, picks the Wikipedia language (Kazakh, Russian or English), the categories and the difficulty, then sends the six-letter code to a friend.</p>
+        <h3 id="r-race">The race</h3>
+        <p>Your article is on top. Your rival's page is live underneath and scrolls as they scroll. There is no search box and no back button. Red links, images and references don't count.</p>
+        <h3 id="r-abilities">Abilities</h3>
+        <p>Each player has two Blurs, two Blackouts and one Rewind per round. Use them when your rival is close to the target.</p>
+        <h3 id="r-win">Winning</h3>
+        <p>The first to open the target article wins the round. If the clock runs out, nobody wins.</p>
+        <h3 id="r-levels">Difficulty</h3>
+        <p><b>Easy</b> (4 min) and <b>Medium</b> (6 min): a route of 2 or 3 clicks always exists. <b>Hard</b> (10 min): two famous articles from different categories, such as Brown bear and Elizabeth II. <b>Impossible</b> (15 min): you start on a random article from anywhere in Wikipedia.</p>
+        <p>Targets come from thousands of well-known Wikipedia articles in 18 categories, from rulers and historical events to animals, space and Kazakhstan.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" role="status" hidden></div>
+
+  <script src="/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,85 @@
+/* Minimal Wikipedia article styling for content fetched from the API. */
+.wiki { font-family: var(--sans); color: #202122; font-size: 15.5px; line-height: 1.62; max-width: 980px; margin: 0 auto; }
+.wiki-title { font: 700 28px/1.15 var(--display); letter-spacing: -.03em; margin: 4px 0 14px; padding-bottom: 10px; border-bottom: 1px solid var(--rule); }
+.wiki-title .is-target { font: 700 13px var(--sans); background: var(--mark); box-shadow: inset 0 -2px 0 var(--mark-edge); padding: 3px 8px; vertical-align: middle; margin-left: 12px; letter-spacing: 0; }
+.wiki .mw-parser-output { overflow-wrap: break-word; }
+.wiki .mw-parser-output::after { content: ''; display: block; clear: both; }
+.wiki p { margin: .5em 0 .8em; }
+.wiki h2, .wiki h3, .wiki h4 { font-family: var(--sans); letter-spacing: -.02em; clear: none; }
+.wiki h2 { font-size: 23px; font-weight: 800; margin: 1.3em 0 .5em; padding-bottom: 4px; border-bottom: 1px solid var(--rule-soft); }
+.wiki h3 { font-size: 18px; font-weight: 800; margin: 1.1em 0 .3em; }
+.wiki h4 { font-size: 16px; font-weight: 800; margin: 1em 0 .3em; }
+.wiki .mw-heading h2, .wiki .mw-heading h3, .wiki .mw-heading h4 { margin: 0; padding: 0; border: 0; font-size: inherit; }
+.wiki .mw-heading3 { font-size: 18px; font-weight: 800; margin: 1.1em 0 .3em; }
+.wiki .mw-heading2 { font-size: 23px; font-weight: 800; margin: 1.3em 0 .5em; padding-bottom: 4px; border-bottom: 1px solid var(--rule-soft); }
+.wiki ul, .wiki ol { padding-left: 1.6em; margin: .3em 0 .8em; }
+.wiki li { margin-bottom: .15em; }
+.wiki img { max-width: 100%; height: auto; vertical-align: middle; }
+.wiki sup, .wiki sub { line-height: 1; font-size: 75%; }
+.wiki blockquote { margin: 1em 0; padding: 0 1.2em; border-left: 3px solid var(--rule-soft); }
+.wiki pre, .wiki code { font-family: ui-monospace, Consolas, monospace; font-size: 13.5px; background: var(--chrome); border-radius: 6px; }
+.wiki pre { padding: 12px; overflow-x: auto; white-space: pre-wrap; }
+
+/* links */
+.wiki a { text-decoration: none; }
+.wiki a.wl { color: var(--blue); cursor: pointer; border-radius: 3px; }
+.wiki a.wl:hover { text-decoration: underline; background: rgba(51, 102, 204, .08); }
+.wiki a.anchor { color: var(--blue); cursor: pointer; }
+.wiki a.dead { color: inherit; cursor: default; }
+.wiki a.dead.was-red { color: #ba0000; opacity: .65; }
+.wiki a.self { font-weight: 800; color: inherit; }
+.wiki a.wl.visited { color: #6b4ba1; }
+
+/* infoboxes, sidebars */
+.wiki .infobox, .wiki .sidebar, .wiki table.infobox_v2, .wiki .infobox_v3 {
+  float: right; clear: right; width: 23em; max-width: 46%; margin: 0 0 1em 1.4em; padding: 4px;
+  border: 1px solid var(--rule); background: var(--chrome); font-size: 88%; line-height: 1.45; border-spacing: 3px; border-radius: 0;
+}
+.wiki .infobox th, .wiki .infobox td { vertical-align: top; padding: 3px 5px; text-align: left; }
+.wiki .infobox caption, .wiki .infobox .infobox-above, .wiki .infobox .infobox-title { font-size: 125%; font-weight: 800; padding: 4px; text-align: center; }
+.wiki .infobox-image, .wiki .infobox .image { text-align: center; }
+
+/* figures / thumbnails (new and legacy markup) */
+.wiki figure { margin: 0; }
+.wiki figure[typeof~="mw:File/Thumb"], .wiki figure[typeof~="mw:File/Frame"], .wiki .thumb {
+  float: right; clear: right; margin: .4em 0 1.2em 1.4em; padding: 4px; border: 1px solid var(--rule); background: var(--chrome); border-radius: 0; max-width: 45%; width: auto;
+}
+.wiki figure.mw-halign-left, .wiki .tleft { float: left !important; clear: left !important; margin: .4em 1.4em 1.2em 0 !important; }
+.wiki figure.mw-halign-center, .wiki .tnone { float: none !important; margin: .5em auto !important; display: table; }
+.wiki figure.mw-halign-right { float: right; clear: right; margin: .4em 0 1.2em 1.4em; }
+.wiki figcaption, .wiki .thumbcaption { font-size: 85%; line-height: 1.4; padding: 5px 3px 2px; color: var(--muted); }
+.wiki .thumbinner { width: auto !important; max-width: 100%; }
+.wiki .gallery, .wiki ul.gallery { display: flex; flex-wrap: wrap; gap: 8px; list-style: none; padding: 0; }
+.wiki .gallerybox { width: auto !important; font-size: 85%; }
+.wiki .gallerybox .thumb { float: none; margin: 0; max-width: none; }
+
+/* tables */
+.wiki table { border-collapse: collapse; }
+.wiki table.wikitable { margin: 1em 0; background: var(--chrome); border: 1px solid var(--rule); font-size: 92%; max-width: 100%; display: block; overflow-x: auto; }
+.wiki table.wikitable > * > tr > th, .wiki table.wikitable > * > tr > td { border: 1px solid var(--rule); padding: 4px 8px; }
+.wiki table.wikitable > * > tr > th { background: var(--chrome-2); }
+
+/* navboxes & references */
+.wiki .navbox, .wiki .navbox-styles + .navbox { border: 1px solid var(--rule); width: 100%; margin: 1.2em 0 0; font-size: 85%; clear: both; border-radius: 0; overflow: hidden; }
+.wiki .navbox table { width: 100%; }
+.wiki .navbox th, .wiki .navbox-title, .wiki .navbox-group { background: var(--chrome-2); padding: 3px 8px; text-align: center; }
+.wiki .navbox-group { text-align: right; white-space: nowrap; }
+.wiki .navbox-list { padding: 3px 8px; }
+.wiki .navbox-list ul, .wiki .hlist ul { padding: 0; margin: 0; }
+.wiki .hlist li { display: inline; }
+.wiki .hlist li:not(:last-child)::after { content: ' · '; font-weight: 800; }
+.wiki .reflist, .wiki .references, .wiki ol.references { font-size: 86%; }
+.wiki .reflist { column-width: 28em; }
+.wiki .hatnote, .wiki .dablink, .wiki .rellink { font-style: italic; padding-left: 1.6em; margin-bottom: .6em; color: #54595d; font-size: 94%; }
+.wiki .ambox, .wiki .metadata.plainlinks, .wiki .mbox-small { border: 1px solid var(--rule-soft); border-left: 4px solid #e8c547; background: var(--chrome); margin: .6em 0; padding: 4px 8px; font-size: 88%; border-radius: 6px; }
+.wiki .mw-empty-elt, .wiki .mw-editsection, .wiki .noprint.portal, .wiki .sistersitebox, .wiki #toc, .wiki .toc, .wiki .mw-references-wrap + .navbox-styles + .noprint { display: none; }
+.wiki .mwe-math-mathml-a11y { display: none; }
+.wiki .mwe-math-fallback-image-inline, .wiki .mwe-math-fallback-image-display { display: inline-block; vertical-align: middle; }
+.wiki .mw-collapsible-toggle { display: none; }
+.wiki .mw-collapsed > tbody > tr:not(:first-child) { display: table-row; }
+
+@media (max-width: 860px) {
+  .wiki { font-size: 15px; }
+  .wiki .infobox, .wiki .sidebar, .wiki figure[typeof~="mw:File/Thumb"], .wiki .thumb { float: none; max-width: 100%; width: auto !important; margin: .6em 0 1em; }
+  .wiki-title { font-size: 26px; }
+}
