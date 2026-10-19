@@ -103,7 +103,8 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .dialog-head h2 { margin: 0; font: 700 21px var(--display); letter-spacing: -.02em; }
 .close { width: 36px; height: 36px; border: 0; background: transparent; font-size: 26px; line-height: 1; border-radius: 2px; color: var(--muted); }
 .close:hover { background: var(--chrome-2); color: var(--ink); }
-.dialog-body { padding: 8px 24px 22px; overflow: auto; }
+.dialog-body { padding: 8px 24px 22px; overflow: auto; flex: 1 1 auto; min-height: 0; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+.dialog-head, .dialog-foot { flex: none; }
 .dialog-foot { padding: 14px 24px; border-top: 1px solid var(--rule-soft); background: var(--chrome); }
 
 .field-label { display: block; margin: 18px 0 8px; font-weight: 700; font-size: 15px; }
@@ -323,6 +324,20 @@ button.route-title:hover { background: #fdecc8; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
   .fx-blackout.on { animation-duration: 1000ms !important; }
+}
+
+/* ---------- phones: size to the VISIBLE screen, not 100vh ---------- */
+@supports (height: 100dvh) {
+  .screen { min-height: 100dvh; }
+  .game { height: 100dvh; }
+  .modal { height: 100dvh; }
+  .dialog { max-height: calc(100dvh - 32px); }
+}
+@media (max-width: 600px) {
+  /* dialogs become a full-height sheet: header on top, button pinned at the bottom */
+  .modal { padding: 0; display: block; }
+  .dialog, .dialog.narrow, .dialog.article { width: 100%; height: 100%; max-height: none; border: 0; border-radius: 0; }
+  .dialog-foot { padding-bottom: max(12px, env(safe-area-inset-bottom)); }
 }
 
 /* ---------- responsive ---------- */
